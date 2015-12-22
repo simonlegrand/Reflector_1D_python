@@ -40,16 +40,31 @@ def plot_transport_plan(x, y, Gamma, ax=None):
 	plt.colorbar()
 	return ax
 	
-def plot_everything(x, mu, p, nu, xi, L, potential, Gamma):
+def plot_resim(bounds, resim, ax=None):
+	if ax is None:
+		fig = plt.figure()
+		ax = fig.add_subplot(111)
+	ax.set_title('Resimulation')
+	ax.set_xlabel('xi')
+	
+	x = np.linspace(bounds[0], bounds[1], np.size(resim))
+	ax.plot(x, resim, 'b-', ms=2)
+	return ax
+	
+def plot_everything(Mu, Nu, Target_plan, u, Gamma, resim):
 	"""
 	Plot all the graphs on the same figure
 	"""
+	
+	x,p,xi = Mu.vertices, Nu.vertices, Target_plan.dens.vertices
+	mu,nu,L = Mu.values, Nu.values, Target_plan.dens.values
 	fig = plt.figure()
 	
 	ax1 = fig.add_subplot(221)
-	ax1 = plot_marginals(x, mu, p, nu, xi, L, ax=ax1)
+	plot_marginals(x, mu, p, nu, xi, L, ax=ax1)
 	ax2 = fig.add_subplot(222)
-	ax2 = plot_potential(x, potential, ax=ax2)
+	plot_potential(x, u, ax=ax2)
 	ax3 = fig.add_subplot(223)
-	ax3 = plot_transport_plan(x, p, Gamma, ax=ax3)
-
+	plot_transport_plan(x, p, Gamma, ax=ax3)
+	ax4 = fig.add_subplot(224)
+	plot_resim(Target_plan.bounds,resim, ax=ax4)

@@ -1,22 +1,14 @@
 """ Module containing functions for the ray tracer"""
 from __future__ import print_function
+
 import sys
 import numpy as np
 import scipy.sparse as sparse
 import matplotlib.pyplot as plt
+from scipy.integrate import quad
+from scipy.interpolate import interp1d
+
 import functions as func
-
-class GeometricError(Exception):
-	"""
-	Base class for Geometric exceptions
-	"""
-	def __init__(self, arg):
-		# Set some exception infomation
-		self.msg = arg
-
-class NotProperShapeError(GeometricError):
-	"""Raised when inputs have not the proper shape"""
-	pass
 
 def reflection(points, I, s1):
 	"""
@@ -69,13 +61,13 @@ def ray_tracer(s1,source_density, s_box, t_box, interpol, base, niter=None):
 		enclosing square box of the target support
 		[ymin, ymax]
 	interpol : Cubic interpolant of the reflector
-	base : [0]e_ksi : Direct orthonormal 
+	base : [0]e_xi : Direct orthonormal 
 		   basis of the target plan
 		   [1]n_plan : Normal vector to the target plan
 	"""	
-	e_ksi = base[0]
+	e_xi = base[0]
 	n_plan = base[1]
-	
+
 	M = None
 	if niter is None:
 		niter = 1
@@ -83,32 +75,29 @@ def ray_tracer(s1,source_density, s_box, t_box, interpol, base, niter=None):
 		nray = 200000
 		# Generate source point uniformely
 		#points = s_box[0] + (s_box[1] - s_box[0])*np.random.rand(nray)
-		points = func.inverse_transform(source_density, s_box[0], s_box[1], nray)
+		points = inverse_transform(source_density, s_box[0], s_box[1], nray)
 		s2 = reflection(points, interpol, s1)
 		
 		##### New polar coordinates #####
 		# psi is the inclination with respect
 		# to -n_plan
 		d = np.linalg.norm(n_plan)
-		psi = np.arccos(np.inner(-s2,n_plan/d))
-		#print(psi)
-		
-		J = np.less_equal(np.inner(s2,e_ksi),np.zeros(len(s2)))
+		psi = np.arccos(np.dot(-s2,n_plan/d))
+		J = np.less_equal(np.dot(s2,e_xi),np.zeros(nray))
 		psi[J] = -psi[J]
-		
+
 		##### Planar coordinates #####
 		# computation of intersection of reflected rays
 		# on the target plan and selection of points
 		# inside t_box
-		ksi = d * np.tan(psi)
-		ksi_min = np.ones(len(ksi)) * t_box[0]
-		ksi_max = np.ones(len(ksi)) * t_box[1]
-		K = np.logical_and(np.less_equal(ksi,ksi_max),
-						   np.greater_equal(ksi,ksi_min))
-		ksi = ksi[K]
-		points = points[K]
-		
-		Miter = fill_sparse_vector(ksi, t_box)
+		xi = d * np.tan(psi)
+		xi_min = np.ones(nray) * t_box[0]
+		xi_max = np.ones(nray) * t_box[1]
+		K = np.logical_and(np.less_equal(xi,xi_max),
+						   np.greater_equal(xi,xi_min))
+		xi = xi[K]
+
+		Miter = fill_sparse_vector(xi, t_box)
 		if M is None:
 			M = Miter
 		else:
@@ -118,11 +107,10 @@ def ray_tracer(s1,source_density, s_box, t_box, interpol, base, niter=None):
 	M = 255.0*M/np.amax(M)
 	
 	return M
-	
-	return
+
 
 def fill_sparse_vector(x,box):
-
+	
 	h = box[1] - box[0] 
 	n_linepix = 512
 	nmesh = np.size(x)
@@ -134,3 +122,28 @@ def fill_sparse_vector(x,box):
 	
 	M = sparse.coo_matrix((data, (i,j)), shape=(n_linepix,1)).todense()
 	return M
+	
+def inverse_transform(func, a, b, N, n_sample=2000):
+	"""
+	Invert Transform Method implementation
+	Returns N random numbers following the func
+	probability law.
+	f has to be positive on [a,b]
+	"""
+	x = np.linspace(a, b, n_sample)
+
+	F = np.ones(n_sample)
+	dx = (b-a)/float(n_sample)
+	for i in range(0,n_sample):
+		F[i] = quad(func, a, a + i*dx)[0]
+
+	F /= max(F)
+	
+	# Interpolation de F^-1
+	interp = interp1d(F,x)
+
+	r = np.random.rand(N)
+	invert = interp(r)
+#	pylab.hist(invert,100)
+#	pylab.show()
+	return interp(r)
