@@ -11,7 +11,7 @@ def cost_function(x,y):
 	"""
 	Compute the cost from x to y
 	"""
-	return 0.5 * (x-y) * (x-y)
+	return 0.5 * (x-y)**2
 	
 	
 def cost_matrix(x,y):
@@ -81,13 +81,11 @@ def interpolation(grid, Gamma):
 	
 def solve_IPFP(Mu, Nu, C, epsilon):
 	"""
-	Solve the optimal transport problem between Mu and 
-	Nu marginals.
+	Solve the optimal transport problem between Mu and Nu marginals.
 	"""
 	mu = np.reshape(Mu.values,(1,np.size(Mu.values)))
 	nu = np.reshape(Nu.values,(np.size(Nu.values),1))
-	b = np.ones((1,np.size(mu)))
-	a = np.ones((np.size(nu),1))
+	a = np.copy(nu)
 	
 	error = 1
 	error_min = 1e-3
@@ -95,12 +93,10 @@ def solve_IPFP(Mu, Nu, C, epsilon):
 
 	H = np.exp(-C/epsilon)
 	while(error > error_min):
-	#while(count<=2):
 
 		b = np.divide(mu, np.dot(a.T,H))
-		#print(b)
 		an = np.divide(nu, np.dot(H,b.T))
-		#print(an)
+
 		error = np.sum(np.absolute(an-a))/np.sum(a)
 		print('error at step', count, '=', error)
 		a = an
@@ -188,15 +184,25 @@ def solve_LP(mu, nu, C, x0=None):
 
 
 def derivates(x,u):
-
+	"""
+	Returns values of grad u at x.
+	
+    Parameters
+	---------- 
+    x : (N,) array
+    	points where u is sampled. 
+    u : (N,) array.
+    	Values of the fonction we want to derivate.
+    	
+    Returns
+    -------
+    out : (N,) array
+    	Values of grad u
+    	
+    See Also
+    --------
+    https://docs.scipy.org/doc/numpy-1.10.1/reference/generated/numpy.gradient.html#numpy.gradient
+    """
 	assert(len(x)==len(u))
-	
-	der = np.zeros(len(u))
-	h = x[1] - x[0]
-	for i in range(1,len(u)-1):
-		der[i] = (u[i+1] - u[i-1]) / (2*h)
-
-	der[0] = (u[1] - u[0]) / h
-	der[len(u)-1] = (u[len(u)-1] - u[len(u)-2]) / h
-	
-	return der
+	dx = x[1]-x[0]
+	return np.gradient(u,dx,edge_order=2)
